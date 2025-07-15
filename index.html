@@ -128,7 +128,6 @@
 
         <div id="inputPengembalian" class="tab-content">
             <h3>Formulir Pengembalian</h3>
-            <!-- === PERUBAHAN HTML DIMULAI DI SINI === -->
             <form id="formPengembalian">
                 <p>Scan atau ketik manual NISN Siswa dan ISBN Buku yang akan dikembalikan.</p>
                 <div class="input-group">
@@ -141,7 +140,6 @@
                 </div>
                 <button type="submit">Proses Pengembalian</button>
             </form>
-            <!-- === PERUBAHAN HTML SELESAI DI SINI === -->
         </div>
 
         <div id="riwayatData" class="tab-content">
@@ -149,7 +147,22 @@
             
             <div class="table-controls"><button onclick="window.print()">Cetak Laporan</button></div>
             <div class="csv-controls"><label for="csvFileRiwayat" class="custom-file-upload">Pilih CSV Riwayat</label><input type="file" id="csvFileRiwayat" accept=".csv" onchange="handleFileSelect('riwayat')"><button onclick="importFromCsv('riwayat')">Impor CSV</button><button onclick="exportToCsv('riwayat')">Ekspor CSV</button></div>
-            <table><thead><tr><th>No</th><th>Nama</th><th>Kelas</th><th>Judul Buku</th><th>Tgl Pinjam</th><th>Tgl Kembali</th><th>Status</th><th>Denda</th></tr></thead><tbody id="dataTableBody"></tbody></table>
+            <!-- === PERUBAHAN HTML DIMULAI DI SINI: Kolom Denda dihapus === -->
+            <table>
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Nama</th>
+                        <th>Kelas</th>
+                        <th>Judul Buku</th>
+                        <th>Tgl Pinjam</th>
+                        <th>Tgl Kembali</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody"></tbody>
+            </table>
+            <!-- === PERUBAHAN HTML SELESAI DI SINI === -->
         </div>
     </div>
 
@@ -174,8 +187,9 @@
     });
     let buku, siswa, peminjaman;
     let csvData = { buku: null, siswa: null, riwayat: null };
-    const BATAS_HARI_PEMINJAMAN = 7;
-    const DENDA_PER_HARI = 1000;
+    // === PERUBAHAN JAVASCRIPT: Variabel terkait denda dihapus ===
+    // const BATAS_HARI_PEMINJAMAN = 7; // Masih bisa digunakan jika ingin ada logika lain di masa depan
+    // const DENDA_PER_HARI = 1000;
     let dataPeminjamanTervalidasi = { nisn: null, isbn: null };
     let html5QrCode;
     let activeScannerTargetId = null;
@@ -197,9 +211,10 @@
         document.getElementById('formMasterSiswa').addEventListener('submit', e => { e.preventDefault(); try { siswa.insert({ nisn: e.target.siswaNisn.value, nama: e.target.siswaNama.value, kelas: e.target.siswaKelas.value }); alert('Siswa berhasil ditambahkan!'); e.target.reset(); renderTabelSiswa(); } catch (err) { alert('Gagal. NISN mungkin sudah ada.'); } });
         document.getElementById('scanNisn').addEventListener('keyup', cekDataPeminjaman);
         document.getElementById('scanIsbn').addEventListener('keyup', cekDataPeminjaman);
-        document.getElementById('btnSimpanPeminjaman').addEventListener('click', () => { if (!dataPeminjamanTervalidasi.nisn || !dataPeminjamanTervalidasi.isbn) { alert('Data siswa atau buku tidak valid.'); return; } peminjaman.insert({ nisnSiswa: dataPeminjamanTervalidasi.nisn, isbnBuku: dataPeminjamanTervalidasi.isbn, tanggalPinjam: new Date(), tanggalKembali: null, status: 'Dipinjam', denda: 0 }); alert('Peminjaman berhasil disimpan!'); document.getElementById('formPeminjaman').reset(); resetInfoPeminjaman(); renderAllTables(); });
+        // === PERUBAHAN JAVASCRIPT: Objek peminjaman tidak lagi menyimpan 'denda' ===
+        document.getElementById('btnSimpanPeminjaman').addEventListener('click', () => { if (!dataPeminjamanTervalidasi.nisn || !dataPeminjamanTervalidasi.isbn) { alert('Data siswa atau buku tidak valid.'); return; } peminjaman.insert({ nisnSiswa: dataPeminjamanTervalidasi.nisn, isbnBuku: dataPeminjamanTervalidasi.isbn, tanggalPinjam: new Date(), tanggalKembali: null, status: 'Dipinjam' }); alert('Peminjaman berhasil disimpan!'); document.getElementById('formPeminjaman').reset(); resetInfoPeminjaman(); renderAllTables(); });
         
-        // === PERUBAHAN JAVASCRIPT DIMULAI DI SINI ===
+        // === PERUBAHAN JAVASCRIPT: Logika perhitungan dan notifikasi denda dihapus ===
         document.getElementById('formPengembalian').addEventListener('submit', e => {
             e.preventDefault();
             const nisn = e.target.siswaNisnKembali.value;
@@ -222,28 +237,15 @@
             }
 
             const tglKembali = new Date();
-            const batasPengembalian = new Date(pinjamanAktif.tanggalPinjam);
-            batasPengembalian.setDate(batasPengembalian.getDate() + BATAS_HARI_PEMINJAMAN);
-            let denda = 0;
-            if (tglKembali > batasPengembalian) {
-                const selisihHari = Math.ceil((tglKembali - batasPengembalian) / (1000 * 60 * 60 * 24));
-                denda = selisihHari * DENDA_PER_HARI;
-            }
             
             pinjamanAktif.status = 'Dikembalikan';
             pinjamanAktif.tanggalKembali = tglKembali;
-            pinjamanAktif.denda = denda;
             peminjaman.update(pinjamanAktif);
             
-            let pesan = `Buku berhasil dikembalikan.`;
-            if (denda > 0) {
-                pesan += `\nDenda keterlambatan: Rp ${denda.toLocaleString('id-ID')}.`;
-            }
-            alert(pesan);
+            alert('Buku berhasil dikembalikan.');
             e.target.reset();
             renderAllTables();
         });
-        // === PERUBAHAN JAVASCRIPT SELESAI DI SINI ===
     }
     
     // --- UI & RENDER FUNCTIONS ---
@@ -251,7 +253,28 @@
     function switchTab(evt, tabName) { document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active")); document.querySelectorAll(".tab-button").forEach(tb => tb.classList.remove("active")); document.getElementById(tabName).classList.add("active"); evt.currentTarget.classList.add("active"); renderAllTables(); }
     function renderTabelBuku() { const tbody = document.getElementById("tabelMasterBukuBody"); tbody.innerHTML = ''; buku.chain().simplesort('judul').data().forEach(item => { const pinjamanAktif = peminjaman.findOne({ isbnBuku: item.isbn, status: 'Dipinjam' }); const statusClass = pinjamanAktif ? 'status-dipinjam' : 'status-tersedia'; const statusText = pinjamanAktif ? 'Dipinjam' : 'Tersedia'; tbody.insertRow().innerHTML = `<td>${item.isbn}</td><td>${item.judul}</td><td>${item.pengarang||'-'}</td><td>${item.penerbit||'-'}</td><td>${item.tahun||'-'}</td><td>${item.klasifikasi||'-'}</td><td><span class="status-pill ${statusClass}">${statusText}</span></td>`; }); }
     function renderTabelSiswa() { const tbody = document.getElementById("tabelMasterSiswaBody"); tbody.innerHTML = ''; siswa.chain().simplesort('nama').data().forEach(item => { tbody.insertRow().innerHTML = `<td>${item.nisn}</td><td>${item.nama}</td><td>${item.kelas}</td>`; }); }
-    function renderRiwayatTable() { const tbody = document.getElementById('dataTableBody'); tbody.innerHTML = ''; peminjaman.chain().simplesort('tanggalPinjam', true).data().forEach((item, index) => { const dataSiswa = siswa.findOne({ nisn: item.nisnSiswa }); const dataBuku = buku.findOne({ isbn: item.isbnBuku }); const namaPeminjam = dataSiswa ? dataSiswa.nama : `Siswa(ID:${item.nisnSiswa})`; const kelas = dataSiswa ? dataSiswa.kelas : '-'; const judulBuku = dataBuku ? dataBuku.judul : `Buku(ID:${item.isbnBuku})`; const statusClass = item.status === 'Dipinjam' ? 'status-dipinjam' : 'status-dikembalikan'; row = tbody.insertRow(); row.innerHTML = `<td>${index + 1}</td><td>${namaPeminjam}</td><td>${kelas}</td><td>${judulBuku}</td><td>${new Date(item.tanggalPinjam).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}</td><td>${item.tanggalKembali ? new Date(item.tanggalKembali).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-'}</td><td><span class="status-pill ${statusClass}">${item.status}</span></td><td>${item.denda > 0 ? `Rp ${item.denda.toLocaleString('id-ID')}` : '-'}</td>`; }); }
+    
+    // === PERUBAHAN JAVASCRIPT: Tampilan tabel riwayat tidak lagi menampilkan kolom 'Denda' ===
+    function renderRiwayatTable() {
+        const tbody = document.getElementById('dataTableBody');
+        tbody.innerHTML = '';
+        peminjaman.chain().simplesort('tanggalPinjam', true).data().forEach((item, index) => {
+            const dataSiswa = siswa.findOne({ nisn: item.nisnSiswa });
+            const dataBuku = buku.findOne({ isbn: item.isbnBuku });
+            const namaPeminjam = dataSiswa ? dataSiswa.nama : `Siswa(ID:${item.nisnSiswa})`;
+            const kelas = dataSiswa ? dataSiswa.kelas : '-';
+            const judulBuku = dataBuku ? dataBuku.judul : `Buku(ID:${item.isbnBuku})`;
+            const statusClass = item.status === 'Dipinjam' ? 'status-dipinjam' : 'status-dikembalikan';
+            const row = tbody.insertRow();
+            row.innerHTML = `<td>${index + 1}</td>
+                             <td>${namaPeminjam}</td>
+                             <td>${kelas}</td>
+                             <td>${judulBuku}</td>
+                             <td>${new Date(item.tanggalPinjam).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}</td>
+                             <td>${item.tanggalKembali ? new Date(item.tanggalKembali).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-'}</td>
+                             <td><span class="status-pill ${statusClass}">${item.status}</span></td>`;
+        });
+    }
 
     // --- QR SCANNER LOGIC ---
     function showScanner(targetId) { activeScannerTargetId = targetId; const modal = document.getElementById('scanner-modal'); modal.style.display = 'flex'; if (!html5QrCode) { html5QrCode = new Html5Qrcode("qr-reader"); } const config = { fps: 10, qrbox: { width: 250, height: 250 } }; html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => { alert("Gagal mengakses kamera. Pastikan Anda telah memberikan izin dan membuka halaman ini melalui HTTPS (misalnya dari GitHub Pages)."); hideScanner(); }); }
@@ -260,7 +283,7 @@
 
     // --- CSV & CORE LOGIC FUNCTIONS ---
     function handleFileSelect(type) { const fileInputId = `csvFile${type.charAt(0).toUpperCase() + type.slice(1)}`; const file = document.getElementById(fileInputId).files[0]; if (!file) return; const reader = new FileReader(); reader.onload = e => { csvData[type] = e.target.result; alert(`File ${file.name} siap diimpor.`); }; reader.readAsText(file); }
-    function importFromCsv(type) { if (!csvData[type]) { alert('Pilih file CSV terlebih dahulu.'); return; } const collectionName = (type === 'riwayat') ? 'peminjaman' : type; const collection = db.getCollection(collectionName); const lines = csvData[type].split(/\r\n|\n/).filter(line => line); if (lines.length <= 1) { alert('File CSV kosong.'); return; } if (!confirm(`PERINGATAN: Ini akan MENGGANTI data ${type} yang ada. Lanjutkan?`)) return; collection.clear(); const headers = lines[0].split(',').map(h => h.trim()); let importedCount = 0, skippedCount = 0; for (let i = 1; i < lines.length; i++) { const data = lines[i].split(',').map(d => d.trim().replace(/^"|"$/g, '')); let obj = {}; headers.forEach((header, index) => obj[header] = data[index] || ''); try { if (type === 'riwayat') { obj.tanggalPinjam = obj.tanggalPinjam ? new Date(obj.tanggalPinjam) : null; obj.tanggalKembali = obj.tanggalKembali ? new Date(obj.tanggalKembali) : null; obj.denda = parseInt(obj.denda, 10) || 0; } collection.insert(obj); importedCount++; } catch (e) { skippedCount++; } } alert(`Impor selesai! ${importedCount} data ditambahkan, ${skippedCount} data dilewati (duplikat).`); renderAllTables(); csvData[type] = null; document.getElementById(`csvFile${type.charAt(0).toUpperCase() + type.slice(1)}`).value = ''; }
+    function importFromCsv(type) { if (!csvData[type]) { alert('Pilih file CSV terlebih dahulu.'); return; } const collectionName = (type === 'riwayat') ? 'peminjaman' : type; const collection = db.getCollection(collectionName); const lines = csvData[type].split(/\r\n|\n/).filter(line => line); if (lines.length <= 1) { alert('File CSV kosong.'); return; } if (!confirm(`PERINGATAN: Ini akan MENGGANTI data ${type} yang ada. Lanjutkan?`)) return; collection.clear(); const headers = lines[0].split(',').map(h => h.trim()); let importedCount = 0, skippedCount = 0; for (let i = 1; i < lines.length; i++) { const data = lines[i].split(',').map(d => d.trim().replace(/^"|"$/g, '')); let obj = {}; headers.forEach((header, index) => obj[header] = data[index] || ''); try { if (type === 'riwayat') { obj.tanggalPinjam = obj.tanggalPinjam ? new Date(obj.tanggalPinjam) : null; obj.tanggalKembali = obj.tanggalKembali ? new Date(obj.tanggalKembali) : null; /* Denda tidak lagi diproses */ } collection.insert(obj); importedCount++; } catch (e) { skippedCount++; } } alert(`Impor selesai! ${importedCount} data ditambahkan, ${skippedCount} data dilewati (duplikat).`); renderAllTables(); csvData[type] = null; document.getElementById(`csvFile${type.charAt(0).toUpperCase() + type.slice(1)}`).value = ''; }
     function exportToCsv(type) { const collectionName = (type === 'riwayat') ? 'peminjaman' : type; const collection = db.getCollection(collectionName); if (collection.count() === 0) { alert('Tidak ada data untuk diekspor.'); return; } const data = collection.find(); const headers = Object.keys(data[0]).filter(k => !['meta', '$loki'].includes(k)); let csvContent = headers.join(',') + '\n'; data.forEach(row => { const values = headers.map(header => `"${(row[header] || '').toString().replace(/"/g, '""')}"`); csvContent += values.join(',') + '\n'; }); const link = document.createElement("a"); link.setAttribute("href", 'data:text/csv;charset=utf-8,' + encodeURI(csvContent)); link.setAttribute("download", `export_${type}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
     function resetInfoPeminjaman() { const infoDiv = document.getElementById('infoPeminjaman'); infoDiv.style.display = 'none'; document.getElementById('infoNamaSiswa').textContent = '-'; document.getElementById('infoKelasSiswa').textContent = '-'; document.getElementById('infoJudulBuku').textContent = '-'; document.getElementById('infoStatusBuku').textContent = '-'; document.getElementById('btnSimpanPeminjaman').disabled = true; dataPeminjamanTervalidasi = { nisn: null, isbn: null }; }
     function cekDataPeminjaman() { const nisn = document.getElementById('scanNisn').value, isbn = document.getElementById('scanIsbn').value; const infoDiv = document.getElementById('infoPeminjaman'), submitButton = document.getElementById('btnSimpanPeminjaman'); let validNisn = false, validIsbn = false; if (nisn) { const dataSiswa = siswa.findOne({ nisn: nisn }); if (dataSiswa) { document.getElementById('infoNamaSiswa').textContent = dataSiswa.nama; document.getElementById('infoKelasSiswa').textContent = dataSiswa.kelas; validNisn = true; } else { document.getElementById('infoNamaSiswa').textContent = 'Siswa Tidak Ditemukan!'; } } if (isbn) { const dataBuku = buku.findOne({ isbn: isbn }); if (dataBuku) { document.getElementById('infoJudulBuku').textContent = dataBuku.judul; const pinjamanAktif = peminjaman.findOne({ isbnBuku: isbn, status: 'Dipinjam' }); if (pinjamanAktif) { document.getElementById('infoStatusBuku').innerHTML = `<span class="status-pill status-dipinjam">Sedang Dipinjam</span>`; } else { document.getElementById('infoStatusBuku').innerHTML = `<span class="status-pill status-tersedia">Tersedia</span>`; validIsbn = true; } } else { document.getElementById('infoJudulBuku').textContent = 'Buku Tidak Ditemukan!'; } } if (nisn || isbn) infoDiv.style.display = 'block'; if (validNisn && validIsbn) { submitButton.disabled = false; dataPeminjamanTervalidasi = { nisn: nisn, isbn: isbn }; } else { submitButton.disabled = true; dataPeminjamanTervalidasi = { nisn: null, isbn: null }; } }
