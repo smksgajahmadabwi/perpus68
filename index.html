@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Perpustakaan - SMK Gajah Mada Banyuwangi</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- LokiJS Core & IndexedDB Adapter for persistence -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lokijs/1.5.12/lokijs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lokijs/1.5.12/loki-indexed-adapter.min.js"></script>
+    <!-- HTML5 QR Code Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <style>
+        :root {
+            --bg-grad-start: #1f2937; --bg-grad-end: #111827;
+            --container-bg: rgba(31, 41, 55, 0.6); --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #e5e7eb; --text-secondary: #9ca3af;
+            --accent-grad-start: #38bdf8; --accent-grad-end: #6366f1;
+            --active-tab-bg: #374151; --input-bg: #1f2937; --input-border: #4b5563;
+            --status-dipinjam-bg: rgba(245, 158, 11, 0.1); --status-dipinjam-text: #f59e0b;
+            --status-tersedia-bg: rgba(16, 185, 129, 0.1); --status-tersedia-text: #10b981;
+        }
+        body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, var(--bg-grad-start), var(--bg-grad-end)); color: var(--text-primary); margin: 0; padding: 20px; min-height: 100vh; box-sizing: border-box; }
+        .container { max-width: 1200px; margin: 0 auto; background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: clamp(15px, 5vw, 30px); }
+        .header { text-align: center; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .header-logo { width: 80px; height: 80px; }
+        .header-text h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 2.5rem); font-weight: 700; background: linear-gradient(to right, var(--accent-grad-start), var(--accent-grad-end)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header-text h2 { margin: 5px 0 0; font-weight: 400; color: var(--text-secondary); font-size: clamp(1rem, 3vw, 1.2rem); }
+        .tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid var(--border-color); margin-bottom: 25px; }
+        .tab-button { padding: 12px 15px; cursor: pointer; border: none; background: transparent; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; border-bottom: 3px solid transparent; transition: all 0.3s ease-in-out; position: relative; top: 1px; }
+        .tab-button:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+        .tab-button.active { color: white; background: var(--active-tab-bg); border-bottom: 3px solid var(--accent-grad-start); border-radius: 8px 8px 0 0; }
+        .tab-icon { margin-right: 8px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        h3 { font-size: 1.5rem; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; border-left: 4px solid var(--accent-grad-start); padding-left: 15px; }
+        form { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        input, select { padding: 12px 15px; border: 1px solid var(--input-border); background-color: var(--input-bg); border-radius: 8px; font-size: 1em; color: var(--text-primary); transition: border-color 0.3s, box-shadow 0.3s; width: 100%; box-sizing: border-box; }
+        input::placeholder { color: var(--text-secondary); }
+        input:focus, select:focus { outline: none; border-color: var(--accent-grad-start); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3); }
+        button { padding: 14px 20px; border: none; border-radius: 8px; background: linear-gradient(to right, var(--accent-grad-start), var(--accent-grad-end)); color: white; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); }
+        button:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .table-controls, .csv-controls { margin-bottom: 20px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .table-controls button, .csv-controls button, .custom-file-upload { padding: 10px 18px; font-size: 14px; font-weight: 500; }
+        .csv-controls { border-top: 1px solid var(--border-color); padding-top: 20px; margin-top: 25px; }
+        input[type="file"] { display: none; }
+        .custom-file-upload { background: var(--input-border); border: 1px solid transparent; cursor: pointer;}
+        .custom-file-upload:hover { background: #4b5563; }
+        .input-group { display: flex; align-items: center; gap: 10px; }
+        .input-group input { flex-grow: 1; }
+        .scan-btn { padding: 12px; font-size: 1.2rem; line-height: 1; flex-shrink: 0; background: var(--input-border); border: 1px solid transparent; }
+        .scan-btn:hover { background: #6b7280; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: var(--container-bg); border-radius: 8px; overflow: hidden; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background-color: var(--active-tab-bg); font-weight: 600; text-transform: uppercase; font-size: 0.85em; letter-spacing: 0.5px; }
+        tbody tr:hover { background-color: rgba(255, 255, 255, 0.05); }
+        .status-pill { padding: 5px 12px; border-radius: 9999px; font-weight: 500; font-size: 0.8em; display: inline-block; }
+        .status-dipinjam { background-color: var(--status-dipinjam-bg); color: var(--status-dipinjam-text); }
+        .status-tersedia, .status-dikembalikan { background-color: var(--status-tersedia-bg); color: var(--status-tersedia-text); }
+        #infoPeminjaman { border: 1px solid var(--border-color); padding: 20px; margin-top: 15px; border-radius: 8px; background: rgba(0,0,0,0.2); }
+        #scanner-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); color: white; text-align: center; align-items: center; justify-content: center; }
+        .scanner-content { position: relative; padding: 20px; max-width: 90%; width: 500px; }
+        #qr-reader { border: 2px solid var(--accent-grad-start); border-radius: 8px; overflow: hidden; }
+        #stop-scan-btn { margin-top: 20px; background: #ef4444; }
+        #stop-scan-btn:hover { background: #dc2626; }
+        @media print {
+            body { background: #fff !important; color: #000 !important; font-size: 12pt; padding: 0; margin: 0; }
+            .container { max-width: 100%; box-shadow: none; border: none; padding: 20px; backdrop-filter: none; background: #fff; }
+            .tabs, form, .csv-controls, .table-controls, .tab-button, #masterBuku, #masterSiswa, #inputPeminjaman, #inputPengembalian { display: none !important; }
+            .header { display: flex !important; flex-direction: row; justify-content: flex-start; align-items: center; text-align: left; border-bottom: 2px solid #000; padding-bottom: 15px; }
+            .header-logo { width: 70px; height: 70px; }
+            .header-text h1, .header-text h2 { background: none; -webkit-text-fill-color: initial; color: #000; }
+            .header-text h1 { font-size: 24pt; } .header-text h2 { font-size: 16pt; }
+            #riwayatData { display: block !important; }
+            h3 { color: #000; border-left: none; padding-left: 0; text-align: center; font-size: 18pt; margin-top: 30px; }
+            table { color: #000; margin-top: 15px; font-size: 10pt; }
+            th { background-color: #e0e0e0; }
+            th, td { border: 1px solid #999; padding: 8px; }
+            .status-pill { background: none !important; color: #000 !important; padding: 0; border-radius: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <img src="LOGO_GM.png" alt="Logo Perpustakaan" class="header-logo">
+            <div class="header-text">
+                <h1>PERPUSTAKAAN</h1>
+                <h2>SMK GAJAH MADA BANYUWANGI</h2>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab(event, 'masterBuku')"><span class="tab-icon">📚</span>Master Buku</button>
+            <button class="tab-button" onclick="switchTab(event, 'masterSiswa')"><span class="tab-icon">👤</span>Master Siswa</button>
+            <button class="tab-button" onclick="switchTab(event, 'inputPeminjaman')"><span class="tab-icon">➡️</span>Peminjaman</button>
+            <button class="tab-button" onclick="switchTab(event, 'inputPengembalian')"><span class="tab-icon">⬅️</span>Pengembalian</button>
+            <button class="tab-button" onclick="switchTab(event, 'riwayatData')"><span class="tab-icon">📊</span>Tabel Riwayat</button>
+        </div>
+        
+        <div id="masterBuku" class="tab-content active">
+            <h3>Manajemen Data Buku</h3>
+            <form id="formMasterBuku"><div class="form-grid"><input type="text" id="bukuIsbn" placeholder="ISBN (ID Unik Buku)" required><input type="text" id="bukuJudul" placeholder="Judul Buku" required><input type="text" id="bukuPengarang" placeholder="Pengarang"><input type="text" id="bukuPenerbit" placeholder="Penerbit"><input type="number" id="bukuTahun" placeholder="Tahun Terbit"><input type="text" id="bukuKlasifikasi" placeholder="No. Klasifikasi"></div><button type="submit">Tambah Buku</button></form>
+            <div class="csv-controls"><label for="csvFileBuku" class="custom-file-upload">Pilih CSV Buku</label><input type="file" id="csvFileBuku" accept=".csv" onchange="handleFileSelect('buku')"><button onclick="importFromCsv('buku')">Impor CSV</button><button onclick="exportToCsv('buku')">Ekspor CSV</button></div>
+            <table><thead><tr><th>ISBN</th><th>Judul</th><th>Pengarang</th><th>Penerbit</th><th>Tahun</th><th>Klasifikasi</th><th>Status</th></tr></thead><tbody id="tabelMasterBukuBody"></tbody></table>
+        </div>
+
+        <div id="masterSiswa" class="tab-content">
+            <h3>Manajemen Data Siswa</h3>
+            <form id="formMasterSiswa"><div class="form-grid"><input type="text" id="siswaNisn" placeholder="NISN (ID Unik Siswa)" required><input type="text" id="siswaNama" placeholder="Nama Lengkap Siswa" required><input type="text" id="siswaKelas" placeholder="Kelas" required></div><button type="submit">Tambah Siswa</button></form>
+            <div class="csv-controls"><label for="csvFileSiswa" class="custom-file-upload">Pilih CSV Siswa</label><input type="file" id="csvFileSiswa" accept=".csv" onchange="handleFileSelect('siswa')"><button onclick="importFromCsv('siswa')">Impor CSV</button><button onclick="exportToCsv('siswa')">Ekspor CSV</button></div>
+            <table><thead><tr><th>NISN</th><th>Nama Siswa</th><th>Kelas</th></tr></thead><tbody id="tabelMasterSiswaBody"></tbody></table>
+        </div>
+
+        <div id="inputPeminjaman" class="tab-content">
+            <h3>Formulir Peminjaman</h3>
+            <form id="formPeminjaman" onsubmit="return false;"><p>Scan QR Code atau ketik manual NISN Siswa.</p><div class="input-group"><input type="text" id="scanNisn" placeholder="Input NISN Siswa..." required><button type="button" class="scan-btn" onclick="showScanner('scanNisn')">📷</button></div><p>Scan QR Code atau ketik manual ISBN Buku.</p><div class="input-group"><input type="text" id="scanIsbn" placeholder="Input ISBN Buku..." required><button type="button" class="scan-btn" onclick="showScanner('scanIsbn')">📷</button></div><div id="infoPeminjaman" style="display: none;"><h4>Konfirmasi Data Peminjaman</h4><p>Siswa: <span id="infoNamaSiswa">-</span> (<span id="infoKelasSiswa">-</span>)</p><p>Buku: <span id="infoJudulBuku">-</span> (<span id="infoStatusBuku">-</span>)</p></div><button id="btnSimpanPeminjaman" type="submit" disabled>Simpan Peminjaman</button></form>
+        </div>
+
+        <div id="inputPengembalian" class="tab-content">
+            <h3>Formulir Pengembalian</h3>
+            <form id="formPengembalian"><p>Scan QR Code Buku yang akan dikembalikan.</p><div class="input-group"><input type="text" id="scanIsbnKembali" placeholder="Input ISBN Buku..." required><button type="button" class="scan-btn" onclick="showScanner('scanIsbnKembali')">📷</button></div><button type="submit">Proses Pengembalian</button></form>
+        </div>
+
+        <div id="riwayatData" class="tab-content">
+            <h3>Riwayat Peminjaman dan Pengembalian</h3>
+            
+            <div class="table-controls"><button onclick="window.print()">Cetak Laporan</button></div>
+            <div class="csv-controls"><label for="csvFileRiwayat" class="custom-file-upload">Pilih CSV Riwayat</label><input type="file" id="csvFileRiwayat" accept=".csv" onchange="handleFileSelect('riwayat')"><button onclick="importFromCsv('riwayat')">Impor CSV</button><button onclick="exportToCsv('riwayat')">Ekspor CSV</button></div>
+            <table><thead><tr><th>No</th><th>Nama</th><th>Kelas</th><th>Judul Buku</th><th>Tgl Pinjam</th><th>Tgl Kembali</th><th>Status</th><th>Denda</th></tr></thead><tbody id="dataTableBody"></tbody></table>
+        </div>
+    </div>
+
+    <!-- QR SCANNER MODAL -->
+    <div id="scanner-modal" style="display: none;">
+        <div class="scanner-content">
+            <p>Arahkan kamera ke QR Code</p>
+            <div id="qr-reader"></div>
+            <button id="stop-scan-btn">Tutup Scanner</button>
+        </div>
+    </div>
+
+    <script>
+    // --- DATABASE SETUP & GLOBAL VARIABLES ---
+    const idbAdapter = new LokiIndexedAdapter('perpustakaan');
+    const db = new loki('perpustakaan.db', {
+        adapter: idbAdapter,
+        autoload: true,
+        autoloadCallback: initializeDatabase,
+        autosave: true,
+        autosaveInterval: 4000
+    });
+    let buku, siswa, peminjaman;
+    let csvData = { buku: null, siswa: null, riwayat: null };
+    const BATAS_HARI_PEMINJAMAN = 7;
+    const DENDA_PER_HARI = 1000;
+    let dataPeminjamanTervalidasi = { nisn: null, isbn: null };
+    let html5QrCode;
+    let activeScannerTargetId = null;
+
+    // --- DATABASE & APPLICATION INITIALIZATION ---
+    function initializeDatabase() {
+        buku = db.getCollection('buku') || db.addCollection('buku', { unique: ['isbn'], indices: ['isbn'] });
+        siswa = db.getCollection('siswa') || db.addCollection('siswa', { unique: ['nisn'], indices: ['nisn'] });
+        peminjaman = db.getCollection('peminjaman') || db.addCollection('peminjaman', { indices: ['isbnBuku', 'nisnSiswa'] });
+        
+        attachEventListeners();
+        renderAllTables();
+    }
+
+    // --- EVENT LISTENER SETUP ---
+    function attachEventListeners() {
+        document.getElementById('stop-scan-btn').addEventListener('click', hideScanner);
+        document.getElementById('formMasterBuku').addEventListener('submit', e => { e.preventDefault(); try { buku.insert({ isbn: e.target.bukuIsbn.value, judul: e.target.bukuJudul.value, pengarang: e.target.bukuPengarang.value, penerbit: e.target.bukuPenerbit.value, tahun: e.target.bukuTahun.value, klasifikasi: e.target.bukuKlasifikasi.value }); alert('Buku berhasil ditambahkan!'); e.target.reset(); renderTabelBuku(); } catch (err) { alert('Gagal. ISBN mungkin sudah ada.'); } });
+        document.getElementById('formMasterSiswa').addEventListener('submit', e => { e.preventDefault(); try { siswa.insert({ nisn: e.target.siswaNisn.value, nama: e.target.siswaNama.value, kelas: e.target.siswaKelas.value }); alert('Siswa berhasil ditambahkan!'); e.target.reset(); renderTabelSiswa(); } catch (err) { alert('Gagal. NISN mungkin sudah ada.'); } });
+        document.getElementById('scanNisn').addEventListener('keyup', cekDataPeminjaman);
+        document.getElementById('scanIsbn').addEventListener('keyup', cekDataPeminjaman);
+        document.getElementById('btnSimpanPeminjaman').addEventListener('click', () => { if (!dataPeminjamanTervalidasi.nisn || !dataPeminjamanTervalidasi.isbn) { alert('Data siswa atau buku tidak valid.'); return; } peminjaman.insert({ nisnSiswa: dataPeminjamanTervalidasi.nisn, isbnBuku: dataPeminjamanTervalidasi.isbn, tanggalPinjam: new Date(), tanggalKembali: null, status: 'Dipinjam', denda: 0 }); alert('Peminjaman berhasil disimpan!'); document.getElementById('formPeminjaman').reset(); resetInfoPeminjaman(); renderAllTables(); });
+        document.getElementById('formPengembalian').addEventListener('submit', e => { e.preventDefault(); const isbn = e.target.scanIsbnKembali.value; const pinjamanAktif = peminjaman.findOne({ isbnBuku: isbn, status: 'Dipinjam' }); if (!pinjamanAktif) { alert('Buku ini tidak tercatat sedang dipinjam.'); return; } const tglKembali = new Date(); const batasPengembalian = new Date(pinjamanAktif.tanggalPinjam); batasPengembalian.setDate(batasPengembalian.getDate() + BATAS_HARI_PEMINJAMAN); let denda = 0; if (tglKembali > batasPengembalian) { const selisihHari = Math.ceil((tglKembali - batasPengembalian) / (1000 * 60 * 60 * 24)); denda = selisihHari * DENDA_PER_HARI; } pinjamanAktif.status = 'Dikembalikan'; pinjamanAktif.tanggalKembali = tglKembali; pinjamanAktif.denda = denda; peminjaman.update(pinjamanAktif); let pesan = `Buku berhasil dikembalikan.`; if (denda > 0) { pesan += `\nDenda keterlambatan: Rp ${denda.toLocaleString('id-ID')}.`; } alert(pesan); e.target.reset(); renderAllTables(); });
+    }
+    
+    // --- UI & RENDER FUNCTIONS ---
+    function renderAllTables() { renderTabelBuku(); renderTabelSiswa(); renderRiwayatTable(); }
+    function switchTab(evt, tabName) { document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active")); document.querySelectorAll(".tab-button").forEach(tb => tb.classList.remove("active")); document.getElementById(tabName).classList.add("active"); evt.currentTarget.classList.add("active"); renderAllTables(); }
+    function renderTabelBuku() { const tbody = document.getElementById("tabelMasterBukuBody"); tbody.innerHTML = ''; buku.chain().simplesort('judul').data().forEach(item => { const pinjamanAktif = peminjaman.findOne({ isbnBuku: item.isbn, status: 'Dipinjam' }); const statusClass = pinjamanAktif ? 'status-dipinjam' : 'status-tersedia'; const statusText = pinjamanAktif ? 'Dipinjam' : 'Tersedia'; tbody.insertRow().innerHTML = `<td>${item.isbn}</td><td>${item.judul}</td><td>${item.pengarang||'-'}</td><td>${item.penerbit||'-'}</td><td>${item.tahun||'-'}</td><td>${item.klasifikasi||'-'}</td><td><span class="status-pill ${statusClass}">${statusText}</span></td>`; }); }
+    function renderTabelSiswa() { const tbody = document.getElementById("tabelMasterSiswaBody"); tbody.innerHTML = ''; siswa.chain().simplesort('nama').data().forEach(item => { tbody.insertRow().innerHTML = `<td>${item.nisn}</td><td>${item.nama}</td><td>${item.kelas}</td>`; }); }
+    function renderRiwayatTable() { const tbody = document.getElementById('dataTableBody'); tbody.innerHTML = ''; peminjaman.chain().simplesort('tanggalPinjam', true).data().forEach((item, index) => { const dataSiswa = siswa.findOne({ nisn: item.nisnSiswa }); const dataBuku = buku.findOne({ isbn: item.isbnBuku }); const namaPeminjam = dataSiswa ? dataSiswa.nama : `Siswa(ID:${item.nisnSiswa})`; const kelas = dataSiswa ? dataSiswa.kelas : '-'; const judulBuku = dataBuku ? dataBuku.judul : `Buku(ID:${item.isbnBuku})`; const statusClass = item.status === 'Dipinjam' ? 'status-dipinjam' : 'status-dikembalikan'; row = tbody.insertRow(); row.innerHTML = `<td>${index + 1}</td><td>${namaPeminjam}</td><td>${kelas}</td><td>${judulBuku}</td><td>${new Date(item.tanggalPinjam).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})}</td><td>${item.tanggalKembali ? new Date(item.tanggalKembali).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-'}</td><td><span class="status-pill ${statusClass}">${item.status}</span></td><td>${item.denda > 0 ? `Rp ${item.denda.toLocaleString('id-ID')}` : '-'}</td>`; }); }
+
+    // --- QR SCANNER LOGIC ---
+    function showScanner(targetId) { activeScannerTargetId = targetId; const modal = document.getElementById('scanner-modal'); modal.style.display = 'flex'; if (!html5QrCode) { html5QrCode = new Html5Qrcode("qr-reader"); } const config = { fps: 10, qrbox: { width: 250, height: 250 } }; html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess).catch(err => { alert("Gagal mengakses kamera. Pastikan Anda telah memberikan izin dan membuka halaman ini melalui HTTPS (misalnya dari GitHub Pages)."); hideScanner(); }); }
+    function hideScanner() { try { html5QrCode.stop().then(ignore => {}).catch(err => {}); } catch (e) {} document.getElementById('scanner-modal').style.display = 'none'; }
+    function onScanSuccess(decodedText, decodedResult) { if (activeScannerTargetId) { const targetInput = document.getElementById(activeScannerTargetId); targetInput.value = decodedText; targetInput.dispatchEvent(new Event('keyup', { bubbles: true, cancelable: true })); } hideScanner(); }
+
+    // --- CSV & CORE LOGIC FUNCTIONS ---
+    function handleFileSelect(type) { const fileInputId = `csvFile${type.charAt(0).toUpperCase() + type.slice(1)}`; const file = document.getElementById(fileInputId).files[0]; if (!file) return; const reader = new FileReader(); reader.onload = e => { csvData[type] = e.target.result; alert(`File ${file.name} siap diimpor.`); }; reader.readAsText(file); }
+    function importFromCsv(type) { if (!csvData[type]) { alert('Pilih file CSV terlebih dahulu.'); return; } const collectionName = (type === 'riwayat') ? 'peminjaman' : type; const collection = db.getCollection(collectionName); const lines = csvData[type].split(/\r\n|\n/).filter(line => line); if (lines.length <= 1) { alert('File CSV kosong.'); return; } if (!confirm(`PERINGATAN: Ini akan MENGGANTI data ${type} yang ada. Lanjutkan?`)) return; collection.clear(); const headers = lines[0].split(',').map(h => h.trim()); let importedCount = 0, skippedCount = 0; for (let i = 1; i < lines.length; i++) { const data = lines[i].split(',').map(d => d.trim().replace(/^"|"$/g, '')); let obj = {}; headers.forEach((header, index) => obj[header] = data[index] || ''); try { if (type === 'riwayat') { obj.tanggalPinjam = obj.tanggalPinjam ? new Date(obj.tanggalPinjam) : null; obj.tanggalKembali = obj.tanggalKembali ? new Date(obj.tanggalKembali) : null; obj.denda = parseInt(obj.denda, 10) || 0; } collection.insert(obj); importedCount++; } catch (e) { skippedCount++; } } alert(`Impor selesai! ${importedCount} data ditambahkan, ${skippedCount} data dilewati (duplikat).`); renderAllTables(); csvData[type] = null; document.getElementById(`csvFile${type.charAt(0).toUpperCase() + type.slice(1)}`).value = ''; }
+    function exportToCsv(type) { const collectionName = (type === 'riwayat') ? 'peminjaman' : type; const collection = db.getCollection(collectionName); if (collection.count() === 0) { alert('Tidak ada data untuk diekspor.'); return; } const data = collection.find(); const headers = Object.keys(data[0]).filter(k => !['meta', '$loki'].includes(k)); let csvContent = headers.join(',') + '\n'; data.forEach(row => { const values = headers.map(header => `"${(row[header] || '').toString().replace(/"/g, '""')}"`); csvContent += values.join(',') + '\n'; }); const link = document.createElement("a"); link.setAttribute("href", 'data:text/csv;charset=utf-8,' + encodeURI(csvContent)); link.setAttribute("download", `export_${type}_${new Date().toISOString().slice(0,10)}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+    function resetInfoPeminjaman() { const infoDiv = document.getElementById('infoPeminjaman'); infoDiv.style.display = 'none'; document.getElementById('infoNamaSiswa').textContent = '-'; document.getElementById('infoKelasSiswa').textContent = '-'; document.getElementById('infoJudulBuku').textContent = '-'; document.getElementById('infoStatusBuku').textContent = '-'; document.getElementById('btnSimpanPeminjaman').disabled = true; dataPeminjamanTervalidasi = { nisn: null, isbn: null }; }
+    function cekDataPeminjaman() { const nisn = document.getElementById('scanNisn').value, isbn = document.getElementById('scanIsbn').value; const infoDiv = document.getElementById('infoPeminjaman'), submitButton = document.getElementById('btnSimpanPeminjaman'); let validNisn = false, validIsbn = false; if (nisn) { const dataSiswa = siswa.findOne({ nisn: nisn }); if (dataSiswa) { document.getElementById('infoNamaSiswa').textContent = dataSiswa.nama; document.getElementById('infoKelasSiswa').textContent = dataSiswa.kelas; validNisn = true; } else { document.getElementById('infoNamaSiswa').textContent = 'Siswa Tidak Ditemukan!'; } } if (isbn) { const dataBuku = buku.findOne({ isbn: isbn }); if (dataBuku) { document.getElementById('infoJudulBuku').textContent = dataBuku.judul; const pinjamanAktif = peminjaman.findOne({ isbnBuku: isbn, status: 'Dipinjam' }); if (pinjamanAktif) { document.getElementById('infoStatusBuku').innerHTML = `<span class="status-pill status-dipinjam">Sedang Dipinjam</span>`; } else { document.getElementById('infoStatusBuku').innerHTML = `<span class="status-pill status-tersedia">Tersedia</span>`; validIsbn = true; } } else { document.getElementById('infoJudulBuku').textContent = 'Buku Tidak Ditemukan!'; } } if (nisn || isbn) infoDiv.style.display = 'block'; if (validNisn && validIsbn) { submitButton.disabled = false; dataPeminjamanTervalidasi = { nisn: nisn, isbn: isbn }; } else { submitButton.disabled = true; dataPeminjamanTervalidasi = { nisn: null, isbn: null }; } }
+    </script>
+
+</body>
+</html>
