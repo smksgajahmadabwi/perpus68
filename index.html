@@ -128,7 +128,20 @@
 
         <div id="inputPengembalian" class="tab-content">
             <h3>Formulir Pengembalian</h3>
-            <form id="formPengembalian"><p>Scan QR Code Buku yang akan dikembalikan.</p><div class="input-group"><input type="text" id="scanIsbnKembali" placeholder="Input ISBN Buku..." required><button type="button" class="scan-btn" onclick="showScanner('scanIsbnKembali')">📷</button></div><button type="submit">Proses Pengembalian</button></form>
+            <!-- === PERUBAHAN HTML DIMULAI DI SINI === -->
+            <form id="formPengembalian">
+                <p>Scan atau ketik manual NISN Siswa dan ISBN Buku yang akan dikembalikan.</p>
+                <div class="input-group">
+                    <input type="text" id="siswaNisnKembali" placeholder="Input NISN Siswa..." required>
+                    <button type="button" class="scan-btn" onclick="showScanner('siswaNisnKembali')">📷</button>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="scanIsbnKembali" placeholder="Input ISBN Buku..." required>
+                    <button type="button" class="scan-btn" onclick="showScanner('scanIsbnKembali')">📷</button>
+                </div>
+                <button type="submit">Proses Pengembalian</button>
+            </form>
+            <!-- === PERUBAHAN HTML SELESAI DI SINI === -->
         </div>
 
         <div id="riwayatData" class="tab-content">
@@ -185,7 +198,52 @@
         document.getElementById('scanNisn').addEventListener('keyup', cekDataPeminjaman);
         document.getElementById('scanIsbn').addEventListener('keyup', cekDataPeminjaman);
         document.getElementById('btnSimpanPeminjaman').addEventListener('click', () => { if (!dataPeminjamanTervalidasi.nisn || !dataPeminjamanTervalidasi.isbn) { alert('Data siswa atau buku tidak valid.'); return; } peminjaman.insert({ nisnSiswa: dataPeminjamanTervalidasi.nisn, isbnBuku: dataPeminjamanTervalidasi.isbn, tanggalPinjam: new Date(), tanggalKembali: null, status: 'Dipinjam', denda: 0 }); alert('Peminjaman berhasil disimpan!'); document.getElementById('formPeminjaman').reset(); resetInfoPeminjaman(); renderAllTables(); });
-        document.getElementById('formPengembalian').addEventListener('submit', e => { e.preventDefault(); const isbn = e.target.scanIsbnKembali.value; const pinjamanAktif = peminjaman.findOne({ isbnBuku: isbn, status: 'Dipinjam' }); if (!pinjamanAktif) { alert('Buku ini tidak tercatat sedang dipinjam.'); return; } const tglKembali = new Date(); const batasPengembalian = new Date(pinjamanAktif.tanggalPinjam); batasPengembalian.setDate(batasPengembalian.getDate() + BATAS_HARI_PEMINJAMAN); let denda = 0; if (tglKembali > batasPengembalian) { const selisihHari = Math.ceil((tglKembali - batasPengembalian) / (1000 * 60 * 60 * 24)); denda = selisihHari * DENDA_PER_HARI; } pinjamanAktif.status = 'Dikembalikan'; pinjamanAktif.tanggalKembali = tglKembali; pinjamanAktif.denda = denda; peminjaman.update(pinjamanAktif); let pesan = `Buku berhasil dikembalikan.`; if (denda > 0) { pesan += `\nDenda keterlambatan: Rp ${denda.toLocaleString('id-ID')}.`; } alert(pesan); e.target.reset(); renderAllTables(); });
+        
+        // === PERUBAHAN JAVASCRIPT DIMULAI DI SINI ===
+        document.getElementById('formPengembalian').addEventListener('submit', e => {
+            e.preventDefault();
+            const nisn = e.target.siswaNisnKembali.value;
+            const isbn = e.target.scanIsbnKembali.value;
+
+            if (!nisn || !isbn) {
+                alert('NISN Siswa dan ISBN Buku harus diisi.');
+                return;
+            }
+
+            const pinjamanAktif = peminjaman.findOne({ 
+                nisnSiswa: nisn, 
+                isbnBuku: isbn, 
+                status: 'Dipinjam' 
+            });
+
+            if (!pinjamanAktif) {
+                alert('Tidak ditemukan catatan peminjaman aktif untuk siswa ini dengan buku tersebut.');
+                return;
+            }
+
+            const tglKembali = new Date();
+            const batasPengembalian = new Date(pinjamanAktif.tanggalPinjam);
+            batasPengembalian.setDate(batasPengembalian.getDate() + BATAS_HARI_PEMINJAMAN);
+            let denda = 0;
+            if (tglKembali > batasPengembalian) {
+                const selisihHari = Math.ceil((tglKembali - batasPengembalian) / (1000 * 60 * 60 * 24));
+                denda = selisihHari * DENDA_PER_HARI;
+            }
+            
+            pinjamanAktif.status = 'Dikembalikan';
+            pinjamanAktif.tanggalKembali = tglKembali;
+            pinjamanAktif.denda = denda;
+            peminjaman.update(pinjamanAktif);
+            
+            let pesan = `Buku berhasil dikembalikan.`;
+            if (denda > 0) {
+                pesan += `\nDenda keterlambatan: Rp ${denda.toLocaleString('id-ID')}.`;
+            }
+            alert(pesan);
+            e.target.reset();
+            renderAllTables();
+        });
+        // === PERUBAHAN JAVASCRIPT SELESAI DI SINI ===
     }
     
     // --- UI & RENDER FUNCTIONS ---
